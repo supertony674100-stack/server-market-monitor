@@ -1,62 +1,63 @@
 import streamlit as st
 from google import genai
 from google.genai import types
+from datetime import datetime
 
 # ==========================================
-# 0. 多國語言介面定義
+# 0. 多國語言介面與內容語言定義
 # ==========================================
 LANG_LABELS = {
     "繁體中文": {
-        "page_title": "AI 伺服器市場動態監測",
-        "sidebar_header": "設定與搜尋",
-        "market_label": "關注市場",
-        "ui_lang_label": "介面語言 (UI Language)",
-        "output_lang_label": "報告輸出語言",
-        "btn_run": "開始生成報告",
-        "running": "正在搜尋當地新聞並分析中...",
-        "success": "報告生成完成！",
-        "error_key": "找不到 API 金鑰。請設定 GEMINI_API_KEY。",
-        "markets": ["全球 (USA 來源)", "日本 (Local 來源)", "台灣供應鏈 (Local 來源)"]
+        "page_title": "24H 全球 AI & 伺服器戰情室",
+        "sidebar_header": "搜尋偏好設定",
+        "market_label": "關注市場與即時來源",
+        "ui_lang_label": "切換系統語言",
+        "btn_run": "立即獲取今日情報",
+        "running": "正在分析全球動態並擬定開發策略...",
+        "success": "情報分析與開發策略已生成！",
+        "summary_title": "🎯 業務機會與建議開發策略",
+        "markets": ["全球 (USA/Global IT)", "日本 (Local Companies)", "台灣 (Supply Chain)"]
     },
     "日本語": {
-        "page_title": "AI サーバー市場動向モニタリング",
-        "sidebar_header": "設定と検索",
-        "market_label": "注目の市場",
-        "ui_lang_label": "UI言語",
-        "output_lang_label": "レポート出力言語",
-        "btn_run": "レポート作成開始",
-        "running": "各地のローカルニュースを検索し分析中...",
-        "success": "レポートの作成が完了しました！",
-        "error_key": "APIキーが見つかりません。GEMINI_API_KEYを設定してください。",
-        "markets": ["グローバル (USAソース)", "日本 (ローカルソース)", "台湾サプライチェーン (ローカルソース)"]
+        "page_title": "24H 全球 AI & サーバー戦況ルーム",
+        "sidebar_header": "検索設定",
+        "market_label": "注目市場とリアルタイムソース",
+        "ui_lang_label": "システム語言切替",
+        "btn_run": "今日の情報と戦略を取得",
+        "running": "各地の動向をスキャンし、開発戦略を策定中...",
+        "success": "インテリジェンス分析と開発戦略が完了しました！",
+        "summary_title": "🎯 営業機会と推奨開発戦略",
+        "markets": ["グローバル (USA/Global IT)", "日本 (国内企業)", "台湾 (サプライチェーン)"]
     },
     "English": {
-        "page_title": "AI Server Market Intelligence",
-        "sidebar_header": "Settings & Search",
-        "market_label": "Target Markets",
-        "ui_lang_label": "UI Language",
-        "output_lang_label": "Report Language",
-        "btn_run": "Generate Report",
-        "running": "Searching local news and analyzing...",
-        "success": "Report generated successfully!",
-        "error_key": "API Key not found. Please set GEMINI_API_KEY.",
-        "markets": ["Global (USA Sources)", "Japan (Local Sources)", "Taiwan (Local Sources)"]
+        "page_title": "24H Global AI & Server Intelligence",
+        "sidebar_header": "Search Preferences",
+        "market_label": "Target Markets & Live Sources",
+        "ui_lang_label": "Switch System Language",
+        "btn_run": "Fetch Today's Intelligence & Strategy",
+        "running": "Scanning trends and formulating development strategies...",
+        "success": "Intelligence & Strategy Analysis Complete!",
+        "summary_title": "🎯 Business Opportunities & Development Strategies",
+        "markets": ["Global (USA/Global IT)", "Japan (Local Companies)", "Taiwan (Supply Chain)"]
     }
 }
 
-# 1. 介面語系選擇 (放在最前面以驅動整個 GUI)
-ui_lang = st.sidebar.radio("Select Interface Language", ["繁體中文", "日本語", "English"])
+# 1. 介面設定
+if "lang_choice" not in st.session_state:
+    st.session_state.lang_choice = "繁體中文"
+
+ui_lang = st.sidebar.radio("🌐 Language Select", ["繁體中文", "日本語", "English"], key="lang_choice")
 T = LANG_LABELS[ui_lang]
 
 st.set_page_config(page_title=T["page_title"], layout="wide")
-st.title(f"🌐 {T['page_title']}")
+st.title(f"📊 {T['page_title']}")
 
 # 2. 安全讀取金鑰
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     client = genai.Client(api_key=API_KEY)
 except Exception:
-    st.error(T["error_key"])
+    st.error("API Key missing! Please set GEMINI_API_KEY in Secrets.")
     st.stop()
 
 # 3. 側邊欄設定
@@ -66,33 +67,36 @@ st.sidebar.header(T["sidebar_header"])
 selected_markets = st.sidebar.multiselect(
     T["market_label"], 
     T["markets"],
-    default=[T["markets"][0], T["markets"][1]]
-)
-
-report_lang = st.sidebar.selectbox(
-    T["output_lang_label"],
-    ["繁體中文", "日本語", "English"]
+    default=T["markets"]
 )
 
 if st.sidebar.button(T["btn_run"]):
+    current_date = datetime.now().strftime("%Y-%m-%d")
     with st.spinner(T["running"]):
         try:
-            # 建立針對地區來源的 Prompt
+            # 構建包含「建議開發策略」的進階 Prompt
             prompt = f"""
-            Task: Provide a deep-dive analysis of the AI server market (focusing on GPU servers, Blackwell, and Data Centers).
+            Today's Date: {current_date}
+            Task: Act as a Senior Business Development (BD) Manager in the AI Server industry.
+            Provide a high-level market intelligence report and actionable development strategies.
             
-            Strict Search Guidelines:
-            1. For '日本 (Local 來源)': You MUST search and prioritize local Japanese sources (e.g., Nikkei, ITmedia, PC Watch, and corporate press releases in Japan).
-            2. For '台灣供應鏈 (Local 來源)': You MUST search and prioritize Taiwan-based tech news (e.g., Digitimes, MoneyDJ, TechNews.tw, Commercial Times).
-            3. For '全球 (USA 來源)': You MUST search and prioritize USA-based industry news (e.g., Bloomberg, CNBC, TechCrunch, Next Platform).
+            Strict Sourcing Instructions:
+            - Global: Latest real-time AI/IT trends from USA/Europe (e.g., NVIDIA updates, Hyperscaler CapEx).
+            - Japan: Prioritize Japanese local news regarding companies like Sakura Internet, SoftBank, NTT, etc.
+            - Taiwan: Focus on the latest Supply Chain movements (TSMC, ODM/OEMs).
             
-            Target Markets to analyze: {', '.join(selected_markets)}
+            Report Structure:
+            1. LATEST MARKET NEWS (Specific to: {', '.join(selected_markets)})
+            2. SUPPLY CHAIN & TECH TRENDS (Focus on Blackwell, Liquid Cooling, or specialized AI chips)
+            3. SUMMARY & RECOMMENDED DEVELOPMENT STRATEGIES:
+               - Identify specific companies or government projects with high potential.
+               - Explain WHY they are opportunities (e.g., new data center announcement, government subsidy).
+               - RECOMMEND A STRATEGY: Provide specific, actionable advice on how to approach these leads (e.g., "Highlight liquid cooling compatibility," "Position as a redundant supplier for GPU clusters," or "Engage with their procurement team regarding the upcoming Q3 expansion").
             
-            Format Instructions:
-            - DO NOT use email format (No 'Dear', 'Best regards', or email headers).
-            - Use a professional market research report style with clear headings.
-            - At the end of the report, provide a dedicated "SUMMARY" section highlighting key takeaways.
-            - The entire report MUST be written in {report_lang}.
+            Constraints:
+            - Use a highly professional, strategic consultant tone.
+            - NO email headers, signatures, or generic greetings.
+            - The entire output MUST be in {ui_lang}.
             """
 
             # 使用 gemini-2.5-flash
@@ -109,3 +113,6 @@ if st.sidebar.button(T["btn_run"]):
             
         except Exception as e:
             st.error(f"Execution Error: {e}")
+
+st.sidebar.divider()
+st.sidebar.caption(f"System Time: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
