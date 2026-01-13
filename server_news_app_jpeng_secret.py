@@ -4,49 +4,40 @@ from google.genai import types
 from datetime import datetime
 
 # ==========================================
-# 0. 多國語言介面與內容語言定義
+# 0. 多國語言介面定義 (新增分頁標籤與手機市場)
 # ==========================================
 LANG_LABELS = {
     "繁體中文": {
-        "page_title": "24H 全球 AI & 伺服器戰情室",
-        "sidebar_header": "搜尋偏好設定",
-        "market_label": "關注市場與即時來源",
-        "ui_lang_label": "切換系統語言",
-        "btn_run": "立即獲取今日情報",
-        "running": "正在分析全球動態並擬定開發策略...",
-        "success": "情報分析與開發策略已生成！",
-        "summary_title": "🎯 業務機會與建議開發策略",
-        "markets": ["全球 (USA/Global IT)", "日本 (Local Companies)", "台灣 (Supply Chain)"]
+        "page_title": "24H 全球 AI & 伺服器 & 行動通訊戰情室",
+        "market_label": "關注領域",
+        "btn_run": "立即分析情報",
+        "running": "正在掃描 NVIDIA, AMD, Google, MSFT 等巨頭動態...",
+        "success": "分析完成！",
+        "tabs": ["🔥 最新情報", "📈 供應鏈趨勢", "🎯 建議開發策略"],
+        "markets": ["全球 (NVIDIA/AMD/IT 巨頭)", "日本 (Local Companies)", "台灣 (Supply Chain)", "行動裝置 (AI Phone)"]
     },
     "日本語": {
-        "page_title": "24H 全球 AI & サーバー戦況ルーム",
-        "sidebar_header": "検索設定",
-        "market_label": "注目市場とリアルタイムソース",
-        "ui_lang_label": "システム語言切替",
-        "btn_run": "今日の情報と戦略を取得",
-        "running": "各地の動向をスキャンし、開発戦略を策定中...",
-        "success": "インテリジェンス分析と開発戦略が完了しました！",
-        "summary_title": "🎯 営業機会と推奨開発戦略",
-        "markets": ["グローバル (USA/Global IT)", "日本 (国内企業)", "台湾 (サプライチェーン)"]
+        "page_title": "24H 全球 AI & サーバー & モバイル戦況ルーム",
+        "market_label": "注目領域",
+        "btn_run": "情報を取得して分析",
+        "running": "NVIDIA, AMD, Google, MSFT などの最新動向を分析中...",
+        "success": "分析と戦略策定が完了しました！",
+        "tabs": ["🔥 最新ニュース", "📈 サプライチェーン", "🎯 推奨開発戦略"],
+        "markets": ["グローバル (NVIDIA/AMD/IT大手)", "日本 (国内企業)", "台湾 (サプライチェーン)", "モバイル (AIスマホ)"]
     },
     "English": {
-        "page_title": "24H Global AI & Server Intelligence",
-        "sidebar_header": "Search Preferences",
-        "market_label": "Target Markets & Live Sources",
-        "ui_lang_label": "Switch System Language",
-        "btn_run": "Fetch Today's Intelligence & Strategy",
-        "running": "Scanning trends and formulating development strategies...",
-        "success": "Intelligence & Strategy Analysis Complete!",
-        "summary_title": "🎯 Business Opportunities & Development Strategies",
-        "markets": ["Global (USA/Global IT)", "Japan (Local Companies)", "Taiwan (Supply Chain)"]
+        "page_title": "24H Global AI, Server & Mobile Intelligence",
+        "market_label": "Target Domains",
+        "btn_run": "Fetch Intelligence",
+        "running": "Scanning NVIDIA, AMD, Google, MSFT and more...",
+        "success": "Analysis Complete!",
+        "tabs": ["🔥 News", "📈 Tech Trends", "🎯 Strategies"],
+        "markets": ["Global (NVIDIA/AMD/Big Tech)", "Japan (Local Companies)", "Taiwan (Supply Chain)", "Mobile (AI Phone)"]
     }
 }
 
-# 1. 介面設定
-if "lang_choice" not in st.session_state:
-    st.session_state.lang_choice = "繁體中文"
-
-ui_lang = st.sidebar.radio("🌐 Language Select", ["繁體中文", "日本語", "English"], key="lang_choice")
+# 1. 介面語系選擇 (驅動 GUI)
+ui_lang = st.sidebar.radio("🌐 Select Language", ["繁體中文", "日本語", "English"])
 T = LANG_LABELS[ui_lang]
 
 st.set_page_config(page_title=T["page_title"], layout="wide")
@@ -57,62 +48,76 @@ try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     client = genai.Client(api_key=API_KEY)
 except Exception:
-    st.error("API Key missing! Please set GEMINI_API_KEY in Secrets.")
+    st.error("API Key missing in Secrets!")
     st.stop()
 
-# 3. 側邊欄設定
-st.sidebar.divider()
-st.sidebar.header(T["sidebar_header"])
+# 3. 側邊欄設定 (手機版會自動收納)
+st.sidebar.header("⚙️ Search Config")
+selected_markets = st.sidebar.multiselect(T["market_label"], T["markets"], default=T["markets"])
 
-selected_markets = st.sidebar.multiselect(
-    T["market_label"], 
-    T["markets"],
-    default=T["markets"]
-)
+# --- 手機頂部資訊卡 ---
+col1, col2 = st.columns(2)
+col1.metric("Update Time", datetime.now().strftime("%H:%M"))
+col2.metric("Market Status", "2026 ACTIVE")
 
 if st.sidebar.button(T["btn_run"]):
-    current_date = datetime.now().strftime("%Y-%m-%d")
     with st.spinner(T["running"]):
         try:
-            # 構建包含「建議開發策略」的進階 Prompt
+            # 構建結構化 Prompt 以便後續分頁顯示
             prompt = f"""
-            Today's Date: {current_date}
-            Task: Act as a Senior Business Development (BD) Manager in the AI Server industry.
-            Provide a high-level market intelligence report and actionable development strategies.
+            Today: {datetime.now().strftime("%Y-%m-%d")}
+            Task: AI Server BD Strategy Report (NVIDIA/AMD/Google/Microsoft focus).
             
-            Strict Sourcing Instructions:
-            - Global: Latest real-time AI/IT trends from USA/Europe (e.g., NVIDIA updates, Hyperscaler CapEx).
-            - Japan: Prioritize Japanese local news regarding companies like Sakura Internet, SoftBank, NTT, etc.
-            - Taiwan: Focus on the latest Supply Chain movements (TSMC, ODM/OEMs).
+            Strict Search Guidelines:
+            - Global: Real-time trends of NVIDIA, AMD, Google, and Microsoft (AI chips, server demand, cloud Capex).
+            - Japan: Local companies (Sakura, SoftBank, NTT) & government AI subsidies.
+            - Taiwan: TSMC and ODM supply chain movements.
+            - Mobile: AI Phone trends affecting data center demand.
+
+            Format: You MUST separate the report into exactly three parts using these headers:
+            [PART_1_NEWS]
+            [PART_2_TECH]
+            [PART_3_STRATEGY]
             
-            Report Structure:
-            1. LATEST MARKET NEWS (Specific to: {', '.join(selected_markets)})
-            2. SUPPLY CHAIN & TECH TRENDS (Focus on Blackwell, Liquid Cooling, or specialized AI chips)
-            3. SUMMARY & RECOMMENDED DEVELOPMENT STRATEGIES:
-               - Identify specific companies or government projects with high potential.
-               - Explain WHY they are opportunities (e.g., new data center announcement, government subsidy).
-               - RECOMMEND A STRATEGY: Provide specific, actionable advice on how to approach these leads (e.g., "Highlight liquid cooling compatibility," "Position as a redundant supplier for GPU clusters," or "Engage with their procurement team regarding the upcoming Q3 expansion").
-            
-            Constraints:
-            - Use a highly professional, strategic consultant tone.
-            - NO email headers, signatures, or generic greetings.
-            - The entire output MUST be in {ui_lang}.
+            - Identify business opportunities and provide actionable STRATEGY for each lead.
+            - Entire output MUST be in {ui_lang}.
+            - Professional tone, no email headers.
             """
 
-            # 使用 gemini-2.5-flash
             response = client.models.generate_content(
                 model='gemini-2.5-flash', 
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    tools=[types.Tool(google_search=types.GoogleSearch())] 
-                )
+                config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
             )
-
-            st.success(T["success"])
-            st.markdown(response.text)
             
-        except Exception as e:
-            st.error(f"Execution Error: {e}")
+            # --- 處理分頁顯示邏輯 ---
+            full_text = response.text
+            parts = {"NEWS": "", "TECH": "", "STRATEGY": ""}
+            
+            # 簡易解析邏輯
+            if "[PART_1_NEWS]" in full_text and "[PART_2_TECH]" in full_text:
+                parts["NEWS"] = full_text.split("[PART_1_NEWS]")[1].split("[PART_2_TECH]")[0]
+                parts["TECH"] = full_text.split("[PART_2_TECH]")[1].split("[PART_3_STRATEGY]")[0]
+                parts["STRATEGY"] = full_text.split("[PART_3_STRATEGY]")[1]
+            else:
+                parts["NEWS"] = full_text # 備援：若解析失敗則全部顯示在第一頁
 
-st.sidebar.divider()
-st.sidebar.caption(f"System Time: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+            # 建立分頁標籤 (手機友善佈局)
+            tab_news, tab_tech, tab_strategy = st.tabs(T["tabs"])
+            
+            with tab_news:
+                st.markdown(parts["NEWS"])
+                
+            with tab_tech:
+                st.markdown(parts["TECH"])
+                
+            with tab_strategy:
+                st.success(T["summary_title"] if "summary_title" in T else "🎯 Recommended BD Strategies")
+                st.markdown(parts["STRATEGY"])
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+# 底部署名與摺疊區塊
+with st.expander("ℹ️ About this System"):
+    st.write("2026 AI Intelligence Dashboard optimized for Mobile/PC. Powered by Gemini 2.5.")
