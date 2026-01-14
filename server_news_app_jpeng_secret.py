@@ -4,6 +4,7 @@ from google.genai import types
 from datetime import datetime
 import urllib.parse
 import pytz 
+import time  # 修正 429 錯誤所需：導入時間模組
 
 # ==========================================
 # 0. 台灣時區設定 (CST)
@@ -23,6 +24,7 @@ LANG_LABELS = {
         "running": "正在掃描在地媒體、垂直市場與 AI 供應鏈動態...",
         "success": "戰略報告生成完成！",
         "report_header": "🔍 全球 AI 算力與供應鏈整合導航報告",
+        "retry_msg": "⚠️ 偵測到流量限制 (429)，正在等待 10 秒後重試... ",
         "markets": ["WW Giant Tech", "NVIDIA/AMD 戰略", "日本 AI 垂直市場與大型 SP", "台灣 AI 供應鏈核心"]
     },
     "日本語": {
@@ -33,6 +35,7 @@ LANG_LABELS = {
         "running": "垂直市場、ローカルメディア、サプライチェーンを分析中...",
         "success": "戦略分析が完了しました！",
         "report_header": "🔍 グローバル AI 算力・サプライチェーン統合報告",
+        "retry_msg": "⚠️ 流量制限(429)を検知しました。10秒後に再試行します... ",
         "markets": ["WWテック大手", "NVIDIA/AMD 戦略", "日本国内SP・垂直市場", "台湾サプライチェーン"]
     },
     "English": {
@@ -43,6 +46,7 @@ LANG_LABELS = {
         "running": "Prioritizing local media & AI vertical market scanning...",
         "success": "Strategic Intelligence Generated!",
         "report_header": "🔍 Global AI & Supply Chain Integrated Intelligence",
+        "retry_msg": "⚠️ Rate limit (429) detected. Retrying in 10s... ",
         "markets": ["WW Giant Tech", "NVIDIA/AMD Dynamics", "Japan SP & AI Verticals", "Taiwan Supply Chain"]
     }
 }
@@ -75,55 +79,71 @@ col1.metric("Taiwan Time (CST)", current_tw_time.strftime("%Y-%m-%d %H:%M"))
 col2.metric("Market Monitor", "2026 LIVE")
 
 # ==========================================
-# 4. 戰略情報生成邏輯
+# 4. 戰略情報生成邏輯 (加入 Retry 機制)
 # ==========================================
 if st.sidebar.button(T["btn_run"]):
     report_date = current_tw_time.strftime("%Y-%m-%d")
     with st.spinner(T["running"]):
-        try:
-            prompt = f"""
-            Today's Date: {report_date} (Taiwan Time).
-            Task: Integrated Strategic AI Intelligence Report for {ui_lang}.
-            
-            Sourcing Strategy: 
-            Prioritize local news and vertical-specific journals for high-fidelity intelligence.
-            - **Japan**: Focus on Nikkei (日本経済新聞), Nikkan Kogyo Shimbun (日刊工業新聞), and ITmedia.
-            - **Taiwan**: Focus on Digitimes, Commercial Times (工商時報), and Economic Daily News.
-            
-            Intelligence Focus:
-            1. **Global Tech Giants (WW Giant Tech)**: Latest moves by Google, MSFT, AWS, Meta, Apple.
-            2. **Japanese Service Providers & AI Industry**: Strategic updates on SoftBank, Sakura Internet, and NTT.
-            3. **Japan AI Vertical Supply Chain**: Role in Industrial Robotics AI, Medical AI, and Automotive AD/SDV.
-            4. **Taiwan AI Supply Chain**: TSMC (Advanced packaging), Quanta, Foxconn, and Liquid Cooling developments.
-            
-            Output Requirements:
-            - Language: {ui_lang}.
-            - Format: Professional single-page Business Intelligence report with structured Markdown headings.
-            """
-            
-            response = client.models.generate_content(
-                model='gemini-2.0-flash', # 更新為 2026 穩定型號
-                contents=prompt,
-                config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
-            )
-            full_text = response.text
-            
+        
+        full_text = ""
+        max_retries = 3
+        
+        # 使用迴圈進行重試
+        for attempt in range(max_retries):
+            try:
+                prompt = f"""
+                Today's Date: {report_date} (Taiwan Time).
+                Task: Integrated Strategic AI Intelligence Report for {ui_lang}.
+                
+                Sourcing Strategy: 
+                Prioritize local news and vertical-specific journals for high-fidelity intelligence.
+                - **Japan**: Focus on Nikkei (日本経済新聞), Nikkan Kogyo Shimbun (日刊工業新聞), and ITmedia.
+                - **Taiwan**: Focus on Digitimes, Commercial Times (工商時報), and Economic Daily News.
+                
+                Intelligence Focus:
+                1. **Global Tech Giants (WW Giant Tech)**: Latest moves by Google, MSFT, AWS, Meta, Apple.
+                2. **Japanese Service Providers & AI Industry**: Strategic updates on SoftBank, Sakura Internet, and NTT.
+                3. **Japan AI Vertical Supply Chain**: Role in Industrial Robotics AI, Medical AI, and Automotive AD/SDV.
+                4. **Taiwan AI Supply Chain**: TSMC (Advanced packaging), Quanta, Foxconn, and Liquid Cooling developments.
+                
+                Output Requirements:
+                - Language: {ui_lang}.
+                - Format: Professional single-page Business Intelligence report with structured Markdown headings.
+                """
+                
+                response = client.models.generate_content(
+                    model='gemini-2.0-flash', 
+                    contents=prompt,
+                    config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+                )
+                full_text = response.text
+                
+                # 如果成功生成，跳出重試迴圈
+                break
+                
+            except Exception as e:
+                # 檢查是否為 429 錯誤
+                if "429" in str(e) and attempt < max_retries - 1:
+                    st.warning(f"{T['retry_msg']} (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(10) # 根據報錯訊息等待 10 秒
+                else:
+                    st.error(f"Execution Error: {e}")
+                    st.stop()
+
+        # 生成成功後的顯示與郵件邏輯
+        if full_text:
             st.header(T["report_header"])
             st.markdown(full_text)
 
             # ==========================================
-            # 5. 安全郵件發送 (修復 400 Error)
+            # 5. 安全郵件發送
             # ==========================================
             st.divider()
             email_subject = f"AI Strategy Report - {report_date}"
-            
-            # 重要：將內文限制在 500 字以內，避免 URL 過長導致 400 錯誤
-            # 同時提醒收件者回到 App 查看完整報告
             email_summary = full_text[:500].replace('\n', '%0D%0A') 
             email_body = f"Hello Tony,%0D%0A%0D%0AGenerated at: {current_tw_time.strftime('%H:%M')} (CST)%0D%0A%0D%0A--- REPORT SUMMARY ---%0D%0A{email_summary}...%0D%0A%0D%0A[Please check the Streamlit App for the full report]"
             
             subject_encoded = urllib.parse.quote(email_subject)
-            # body 已經手動處理過換行，直接使用
             mailto_link = f"mailto:tonyh@supermicro.com?subject={subject_encoded}&body={email_body}"
             
             st.markdown(
@@ -137,9 +157,6 @@ if st.sidebar.button(T["btn_run"]):
                 unsafe_allow_html=True
             )
             st.success(T["success"])
-            
-        except Exception as e:
-            st.error(f"Execution Error: {e}")
 
 st.sidebar.divider()
 st.sidebar.caption("System: 2026 AI Strategy Navigator")
