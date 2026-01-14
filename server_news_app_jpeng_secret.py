@@ -12,14 +12,14 @@ tw_tz = pytz.timezone('Asia/Taipei')
 current_tw_time = datetime.now(tw_tz)
 
 # ==========================================
-# 1. 專業混合命名與多國語言定義 (整合單一報告介面)
+# 1. 專業混合命名與多國語言定義
 # ==========================================
 LANG_LABELS = {
     "繁體中文": {
         "page_title": "全球 AI 算力戰略與供應鏈導航中心",
         "market_label": "戰略關注領域",
         "btn_run": "生成全球戰略情報報告",
-        "btn_email": "📧 寄送報告給 Tony",
+        "btn_email": "📧 寄送報告摘要給 Tony",
         "running": "正在掃描在地媒體、垂直市場與 AI 供應鏈動態...",
         "success": "戰略報告生成完成！",
         "report_header": "🔍 全球 AI 算力與供應鏈整合導航報告",
@@ -29,7 +29,7 @@ LANG_LABELS = {
         "page_title": "グローバル AI 算力戦略・サプライチェーンナビゲーター",
         "market_label": "戦略的注力領域",
         "btn_run": "戦略インテリジェンス報告を生成",
-        "btn_email": "📧 Tonyにレポートを送信",
+        "btn_email": "📧 Tonyにレポート要約を送信",
         "running": "垂直市場、ローカルメディア、サプライチェーンを分析中...",
         "success": "戦略分析が完了しました！",
         "report_header": "🔍 グローバル AI 算力・サプライチェーン統合報告",
@@ -39,7 +39,7 @@ LANG_LABELS = {
         "page_title": "Global AI Strategy & Supply Chain Navigator",
         "market_label": "Strategic Focus",
         "btn_run": "Generate Strategic Intelligence",
-        "btn_email": "📧 Send Report to Tony",
+        "btn_email": "📧 Send Report Summary to Tony",
         "running": "Prioritizing local media & AI vertical market scanning...",
         "success": "Strategic Intelligence Generated!",
         "report_header": "🔍 Global AI & Supply Chain Integrated Intelligence",
@@ -75,13 +75,12 @@ col1.metric("Taiwan Time (CST)", current_tw_time.strftime("%Y-%m-%d %H:%M"))
 col2.metric("Market Monitor", "2026 LIVE")
 
 # ==========================================
-# 4. 戰略情報生成邏輯 (已修復 Line 133 語法錯誤)
+# 4. 戰略情報生成邏輯
 # ==========================================
 if st.sidebar.button(T["btn_run"]):
     report_date = current_tw_time.strftime("%Y-%m-%d")
     with st.spinner(T["running"]):
         try:
-            # 整合所有需求的專業 Prompt
             prompt = f"""
             Today's Date: {report_date} (Taiwan Time).
             Task: Integrated Strategic AI Intelligence Report for {ui_lang}.
@@ -100,36 +99,37 @@ if st.sidebar.button(T["btn_run"]):
             Output Requirements:
             - Language: {ui_lang}.
             - Format: Professional single-page Business Intelligence report with structured Markdown headings.
-            - Content: Integrated analysis of supply chain movements and actionable BD strategies.
             """
             
             response = client.models.generate_content(
-                model='gemini-2.5-flash', 
+                model='gemini-2.0-flash', # 更新為 2026 穩定型號
                 contents=prompt,
                 config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
             )
             full_text = response.text
             
-            # 單一報告流呈現 (取代原本的分頁標籤)
             st.header(T["report_header"])
             st.markdown(full_text)
 
             # ==========================================
-            # 5. 安全郵件發送 (透過 mailto)
+            # 5. 安全郵件發送 (修復 400 Error)
             # ==========================================
             st.divider()
-            email_subject = f"Strategic AI Report: {T['page_title']} - {report_date}"
-            # 限制郵件內容長度以避免 Google 400 錯誤
-            email_body = f"Hello Tony,\n\nGenerated at: {current_tw_time.strftime('%H:%M')} (CST)\n\n{full_text[:2000]}..."
+            email_subject = f"AI Strategy Report - {report_date}"
+            
+            # 重要：將內文限制在 500 字以內，避免 URL 過長導致 400 錯誤
+            # 同時提醒收件者回到 App 查看完整報告
+            email_summary = full_text[:500].replace('\n', '%0D%0A') 
+            email_body = f"Hello Tony,%0D%0A%0D%0AGenerated at: {current_tw_time.strftime('%H:%M')} (CST)%0D%0A%0D%0A--- REPORT SUMMARY ---%0D%0A{email_summary}...%0D%0A%0D%0A[Please check the Streamlit App for the full report]"
             
             subject_encoded = urllib.parse.quote(email_subject)
-            body_encoded = urllib.parse.quote(email_body)
-            mailto_link = f"mailto:tonyh@supermicro.com?subject={subject_encoded}&body={body_encoded}"
+            # body 已經手動處理過換行，直接使用
+            mailto_link = f"mailto:tonyh@supermicro.com?subject={subject_encoded}&body={email_body}"
             
             st.markdown(
                 f'''
                 <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
-                    <button style="background-color: #007bff; color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 18px;">
+                    <button style="background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px;">
                         {T["btn_email"]}
                     </button>
                 </a>
@@ -143,4 +143,3 @@ if st.sidebar.button(T["btn_run"]):
 
 st.sidebar.divider()
 st.sidebar.caption("System: 2026 AI Strategy Navigator")
-# 已移除導致報錯的 st.sidebar. 殘留
