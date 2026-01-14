@@ -20,30 +20,30 @@ LANG_LABELS = {
         "market_label": "戰略關注領域",
         "btn_run": "生成全球戰略情報報告",
         "btn_email": "📧 寄送報告給 Tony",
-        "running": "正在優先掃描在地媒體、科技巨頭與 AI 供應鏈動態...",
+        "running": "正在掃描在地媒體、垂直市場與 AI 供應鏈動態...",
         "success": "戰略報告生成完成！",
         "report_header": "🔍 全球 AI 算力與供應鏈整合導航報告",
-        "markets": ["WW Giant Tech", "NVIDIA/AMD 戰略", "日本市場 Sovereign AI", "台灣 AI 供應鏈核心"]
+        "markets": ["WW Giant Tech", "NVIDIA/AMD 戰略", "日本 AI 垂直市場供應鏈", "台灣 AI 供應鏈核心"]
     },
     "日本語": {
         "page_title": "グローバル AI 算力戦略・サプライチェーンナビゲーター",
         "market_label": "戦略的注力領域",
         "btn_run": "戦略インテリジェンス報告を生成",
         "btn_email": "📧 Tonyにレポートを送信",
-        "running": "ローカルメディア、テック大手、サプライチェーンを分析中...",
+        "running": "垂直市場、ローカルメディア、サプライチェーンを分析中...",
         "success": "戦略分析が完了しました！",
         "report_header": "🔍 グローバル AI 算力・サプライチェーン統合報告",
-        "markets": ["WWテック大手", "NVIDIA/AMD 戦略", "日本国内市場動向", "台湾サプライチェーン"]
+        "markets": ["WWテック大手", "NVIDIA/AMD 戦略", "日本 AI 垂直市場サプライチェーン", "台湾サプライチェーン"]
     },
     "English": {
         "page_title": "Global AI Strategy & Supply Chain Navigator",
         "market_label": "Strategic Focus",
         "btn_run": "Generate Strategic Intelligence",
         "btn_email": "📧 Send Report to Tony",
-        "running": "Prioritizing local media & global infrastructure scanning...",
+        "running": "Prioritizing local media & AI vertical market scanning...",
         "success": "Strategic Intelligence Generated!",
         "report_header": "🔍 Global AI & Supply Chain Integrated Intelligence",
-        "markets": ["WW Giant Tech", "NVIDIA/AMD Dynamics", "Japan Market Insights", "Taiwan Supply Chain"]
+        "markets": ["WW Giant Tech", "NVIDIA/AMD Dynamics", "Japan AI Vertical Supply Chain", "Taiwan Supply Chain"]
     }
 }
 
@@ -75,32 +75,34 @@ col1.metric("Taiwan Time (CST)", current_tw_time.strftime("%Y-%m-%d %H:%M"))
 col2.metric("Market Monitor", "2026 LIVE")
 
 # ==========================================
-# 4. 戰略情報生成邏輯 (在地媒體搜尋強化)
+# 4. 戰略情報生成邏輯 (加入日本垂直市場與在地媒體)
 # ==========================================
 if st.sidebar.button(T["btn_run"]):
     report_date = current_tw_time.strftime("%Y-%m-%d")
     with st.spinner(T["running"]):
         try:
-            # 關鍵修改點：在 Prompt 中強制要求在地媒體來源
+            # 關鍵修改點：加入日本垂直市場分析與專業媒體來源
             prompt = f"""
             Today's Date: {report_date} (Taiwan Time).
             Task: Integrated Strategic AI Intelligence Report for {ui_lang}.
             
             Sourcing Strategy: 
-            Actively search for and prioritize local news media and industry-specific journals from each region to ensure first-hand intelligence. 
-            - For Japan: Prioritize sources like Nikkei (日本経済新聞), NHK, and ITmedia.
-            - For Taiwan: Prioritize sources like Commercial Times (工商時報), Economic Daily News (經濟日報), and Digitimes.
+            Prioritize local news and vertical-specific journals for high-fidelity intelligence.
+            - **Japan**: Focus on Nikkei (日本経済新聞), Nikkan Kogyo Shimbun (日刊工業新聞), and Semiconductor Portal.
+            - **Taiwan**: Focus on Digitimes, Commercial Times (工商時報), and Economic Daily News.
             
             Intelligence Focus:
-            1. **Global Tech Giants (WW Giant Tech)**: Latest moves by Google, Microsoft, Amazon (AWS), Meta, and Apple.
-            2. **GPU & Accelerator Landscape**: NVIDIA (Blackwell/GB200) and AMD (MI300/400) updates.
-            3. **Japan Sovereign AI & Market**: GPU server demand from Sakura Internet, SoftBank, and NTT.
-            4. **Taiwan Supply Chain Ecosystem**: Critical updates on TSMC (CoWoS/Advanced Nodes), Foxconn, Quanta, and thermal management (Liquid Cooling).
+            1. **Global Tech Giants (WW Giant Tech)**: Infrastructure & CapEx by Google, MSFT, AWS, Meta, Apple.
+            2. **GPU & Accelerator Landscape**: NVIDIA (Blackwell/GB200) & AMD strategic roadmap.
+            3. **Japan AI Vertical Supply Chain**: 
+               - Deep dive into Japan's role in specific AI vertical markets (e.g., Industrial Robotics AI, Medical AI hardware, Automotive AI/AD).
+               - Strategic moves by Japanese vendors in the AI server component and manufacturing ecosystem.
+            4. **Taiwan Supply Chain Ecosystem**: TSMC (Advanced packaging), Quanta, Foxconn, and Liquid Cooling developments.
             
             Output Requirements:
             - Language: {ui_lang}.
-            - Format: Professional Business Intelligence report with structured Markdown headings.
-            - Content: Merge 'Supply Chain Trends' and 'BD Strategies' into a single coherent analysis.
+            - Format: Professional BI report with clear Markdown headings.
+            - Content: Integrated analysis of supply chain movements and actionable BD strategies.
             """
             
             response = client.models.generate_content(
@@ -120,7 +122,9 @@ if st.sidebar.button(T["btn_run"]):
             email_subject = f"Strategic AI Report: {T['page_title']} - {report_date}"
             email_body = f"Hello Tony,\n\nSource: {T['page_title']}\nGenerated at: {current_tw_time.strftime('%H:%M')} (CST)\n\n{full_text}"
             
-            mailto_link = f"mailto:tonyh@supermicro.com?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
+            subject_encoded = urllib.parse.quote(email_subject)
+            body_encoded = urllib.parse.quote(email_body)
+            mailto_link = f"mailto:tonyh@supermicro.com?subject={subject_encoded}&body={body_encoded}"
             
             st.markdown(
                 f'''
