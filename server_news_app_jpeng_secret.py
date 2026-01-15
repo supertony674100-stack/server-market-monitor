@@ -7,13 +7,7 @@ import pytz
 import time 
 
 # ==========================================
-# 0. 台灣時區設定 (CST)
-# ==========================================
-tw_tz = pytz.timezone('Asia/Taipei')
-current_tw_time = datetime.now(tw_tz)
-
-# ==========================================
-# 1. 專業命名與多國語言定義 (已補齊所有變數)
+# 1. 核心設定與多國語言 (必須放在最前面，防止 NameError)
 # ==========================================
 LANG_LABELS = {
     "繁體中文": {
@@ -51,28 +45,28 @@ LANG_LABELS = {
     }
 }
 
-# 設定頁面配置
+# --- 初始化 UI 變數 ---
 st.set_page_config(page_title="AI Strategy Navigator", layout="wide")
-
-# 介面語言選擇
 ui_lang = st.sidebar.radio("🌐 Select Interface Language", ["繁體中文", "日本語", "English"])
 T = LANG_LABELS[ui_lang]
 
+# --- 顯示標題 ---
 st.title(f"🚀 {T['page_title']}")
 
 # ==========================================
-# 2. API Key 設定
+# 2. API 與時區設定
 # ==========================================
+tw_tz = pytz.timezone('Asia/Taipei')
+current_tw_time = datetime.now(tw_tz)
+
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     client = genai.Client(api_key=API_KEY)
 except Exception:
-    st.error("API Key missing! Please set GEMINI_API_KEY in Streamlit Secrets.")
+    st.error("API Key missing! Please check Streamlit Secrets.")
     st.stop()
 
-# ==========================================
-# 3. 側邊欄與時間指標
-# ==========================================
+# --- 側邊欄配置 ---
 st.sidebar.divider()
 st.sidebar.header("⚙️ Strategic Config")
 selected_markets = st.sidebar.multiselect(T["market_label"], T["markets"], default=T["markets"])
@@ -82,7 +76,7 @@ col1.metric("Taiwan Time (CST)", current_tw_time.strftime("%Y-%m-%d %H:%M"))
 col2.metric("Market Monitor", "2026 LIVE")
 
 # ==========================================
-# 4. 戰略情報生成邏輯 (模型: 1.5-Flash, 重試: 30s)
+# 3. 戰略情報生成 (解決 404 與 30秒重試)
 # ==========================================
 if st.sidebar.button(T["btn_run"]):
     report_date = current_tw_time.strftime("%Y-%m-%d")
@@ -93,23 +87,17 @@ if st.sidebar.button(T["btn_run"]):
         
         for attempt in range(max_retries):
             try:
-                prompt = f"""
-                Today's Date: {report_date} (Taiwan Time).
-                Task: Integrated Strategic AI Intelligence Report for {ui_lang}.
-                Focus: WW Giants, Japan SPs (Sakura, SoftBank), and Taiwan Supply Chain (TSMC, Cooling).
-                Format: Professional Business Intelligence report.
-                """
-                
-                # 使用穩定的 1.5-flash
+                # 這裡使用 gemini-2.0-flash，因為您的環境 v1beta 支援它
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash', 
-                    contents=prompt,
+                    model='gemini-2.0-flash', 
+                    contents=f"Today's Date: {report_date}. Task: AI Strategy Report for {ui_lang}.",
                     config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
                 )
                 full_text = response.text
                 break
                 
             except Exception as e:
+                # 檢查是否為流量限制 (429)
                 if "429" in str(e) and attempt < max_retries - 1:
                     st.warning(f"{T['retry_msg']} (Attempt {attempt + 1}/{max_retries})")
                     time.sleep(30) # 依照要求改為 30 秒
@@ -121,13 +109,11 @@ if st.sidebar.button(T["btn_run"]):
             st.header(T["report_header"])
             st.markdown(full_text)
 
-            # ==========================================
-            # 5. 安全郵件發送
-            # ==========================================
+            # --- 郵件發送功能 ---
             st.divider()
             email_subject = f"AI Strategy Report - {report_date}"
             email_summary = full_text[:500].replace('\n', '%0D%0A') 
-            email_body = f"Hello Tony,%0D%0A%0D%0AGenerated at: {current_tw_time.strftime('%H:%M')} (CST)%0D%0A%0D%0A--- REPORT SUMMARY ---%0D%0A{email_summary}...%0D%0A"
+            email_body = f"Hello Tony,%0D%0A%0D%0AGenerated at: {current_tw_time.strftime('%H:%M')} (CST)%0D%0A%0D%0A{email_summary}..."
             
             subject_encoded = urllib.parse.quote(email_subject)
             mailto_link = f"mailto:tonyh@supermicro.com?subject={subject_encoded}&body={email_body}"
