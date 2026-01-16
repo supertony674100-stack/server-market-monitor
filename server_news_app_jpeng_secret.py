@@ -7,18 +7,18 @@ import pytz
 import time 
 
 # ==========================================
-# 1. 核心定義 (包含 Tony 專屬標籤)
+# 1. 核心定義 (優先放在最頂端，絕對防止 NameError)
 # ==========================================
 LANG_LABELS = {
     "繁體中文": {
         "page_title": "2026 全球 AI 算力戰略監控中心",
         "market_label": "戰略關注領域 (24H 監控)",
         "btn_run": "執行深度戰略掃描",
-        "btn_email": "📧 將今日報告寄送至我的 Email (tonyh@supermicro.com)",
+        "btn_email": "📧 將今日報告寄送至我的 Email",
         "running": "正在調用 Google Search 掃描供應鏈動態...",
         "success": "戰略報告生成完成！",
         "report_header": "🔍 2026 AI 算力與供應鏈即時戰略報告",
-        "retry_msg": "⏳ 正在避開流量高峰 (快速重試)...",
+        "retry_msg": "⏳ 正在重試 (付費版快速通道)...",
         "markets": ["WW Giant Tech", "NVIDIA/AMD 戰略", "日本市場 (Sakura/SoftBank)", "台灣供應鏈 (液冷/網通)"]
     },
     "日本語": {
@@ -31,30 +31,19 @@ LANG_LABELS = {
         "report_header": "🔍 2026 グローバル AI 算力・サプライチェーン報告",
         "retry_msg": "⏳ 再試行中...",
         "markets": ["WWテック大手", "NVIDIA/AMD 戦略", "日本国内DC", "台灣サプライチェーン"]
-    },
-    "English": {
-        "page_title": "2026 Global AI Strategy Navigator",
-        "market_label": "Strategic Focus",
-        "btn_run": "Generate Strategic Intelligence",
-        "btn_email": "📧 Send Report to my Email",
-        "running": "Deep scanning markets...",
-        "success": "Intelligence Generated!",
-        "report_header": "🔍 2026 Global AI & Supply Chain Strategic Report",
-        "retry_msg": "⏳ Retrying...",
-        "markets": ["WW Giant Tech", "NVIDIA/AMD Dynamics", "Japan DC Expansion", "Taiwan SC (Liquid Cooling)"]
     }
 }
 
 # --- 頁面初始化 ---
 st.set_page_config(page_title="AI Strategy Navigator", layout="wide")
-ui_lang = st.sidebar.radio("🌐 Language Selector", list(LANG_LABELS.keys()))
+ui_lang = st.sidebar.radio("🌐 Language", list(LANG_LABELS.keys()))
 T = LANG_LABELS[ui_lang]
 
 st.title(f"🚀 {T['page_title']}")
-st.info("ℹ️ **系統狀態：24H 持續監控中**。已開啟 Google Search 深度檢索功能。")
+st.info("ℹ️ **系統狀態：已開啟 24H 深度戰略監控**。")
 
 # ==========================================
-# 2. 環境與 API 設定 (Paid Tier 優化)
+# 2. 環境與 API 設定 (請確保 Key 已更新)
 # ==========================================
 tw_tz = pytz.timezone('Asia/Taipei')
 current_tw_time = datetime.now(tw_tz)
@@ -63,45 +52,33 @@ try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     client = genai.Client(api_key=API_KEY)
 except Exception:
-    st.error("API Key 缺失！請確保已在 Streamlit Secrets 設定 GEMINI_API_KEY。")
+    st.error("API Key 缺失！請在 Streamlit Secrets 設定新的 GEMINI_API_KEY。")
     st.stop()
 
 st.sidebar.divider()
 selected_markets = st.sidebar.multiselect(T["market_label"], T["markets"], default=T["markets"])
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Current Time (CST)", current_tw_time.strftime("%Y-%m-%d %H:%M"))
-col2.metric("Market Status", "2026 LIVE")
-col3.metric("Service Tier", "Paid Tier Active")
-
 # ==========================================
-# 3. 戰略掃描與郵件發送邏輯
+# 3. 核心邏輯 (Tony 專屬：日本/台灣深度追蹤)
 # ==========================================
 if st.sidebar.button(T["btn_run"]):
     report_date = current_tw_time.strftime("%Y-%m-%d")
     with st.spinner(T["running"]):
-        
         full_text = ""
         max_retries = 3
         
         for attempt in range(max_retries):
             try:
-                # 結合 Tony 關注的日本 DC 與台灣液冷/網通指令
+                # 這裡加入了 Tony 指定的日本 DC 與台灣供應鏈深度指令
                 strategic_prompt = f"""
-                Current Date: {report_date}. 
-                Analysis Task: Strategic Supply Chain Intelligence for {ui_lang}.
-                
-                Mandatory Focus:
-                1. **Japan Market**: 
-                   - Investigate Sakura Internet's AI data center expansion and GPU procurement status.
-                   - Monitor SoftBank's 2026 AI-RAN and large-scale DC development in Hokkaido.
-                2. **Taiwan Supply Chain**:
-                   - Track Liquid Cooling (AVC, Auras, Vertiv, Cooler Master) capacity for NVIDIA Blackwell.
-                   - Track Networking updates (800G/1.6T switches, CPO adoption) for key networking players.
-                3. **Global Context**: {', '.join(selected_markets)}.
+                Current Date: {report_date}. Lang: {ui_lang}.
+                Deep Dive Tasks:
+                1. **Japan Market**: Track Sakura Internet & SoftBank AI data center expansion and GPU procurement.
+                2. **Taiwan Supply Chain**: Monitor Liquid Cooling (Cold Plate/CDU) and 800G/1.6T networking capacity changes.
+                3. **Strategic Insight**: Provide business intelligence based on the last 24h news.
                 """
 
-                # 使用 2.0-Flash 獲取最新即時搜尋結果
+                # 使用 Gemini 2.0 Flash (解決 404 問題)
                 response = client.models.generate_content(
                     model='gemini-2.0-flash', 
                     contents=strategic_prompt,
@@ -112,8 +89,8 @@ if st.sidebar.button(T["btn_run"]):
                 
             except Exception as e:
                 if "429" in str(e) and attempt < max_retries - 1:
-                    st.warning(f"{T['retry_msg']} (Attempt {attempt + 1})")
-                    time.sleep(5) 
+                    st.warning(f"{T['retry_msg']} (第 {attempt + 1} 次重試)")
+                    time.sleep(10) # 付費版重試間隔只需 10 秒
                 else:
                     st.error(f"Execution Error: {e}")
                     st.stop()
@@ -123,29 +100,13 @@ if st.sidebar.button(T["btn_run"]):
             st.markdown(full_text)
             st.success(T["success"])
 
-            # --- 郵件發送選項 (Option) ---
+            # --- 郵件選項 (寄送至 tonyh@supermicro.com) ---
             st.divider()
             email_subject = f"AI Strategy Report - {report_date}"
-            # 將報告內容前 1000 字編碼至郵件本文中
-            email_body_preview = full_text[:1000].replace('\n', '%0D%0A')
-            email_body = f"Hello Tony,%0D%0A%0D%0AThis is your AI Strategy Report for {report_date}.%0D%0A%0D%0A--- REPORT START ---%0D%0A{email_body_preview}...%0D%0A--- REPORT END ---%0D%0A%0D%0AGenerated by Gemini 2.0 Strategic Hub."
-            
+            email_body = f"Hello Tony,%0D%0A%0D%0AHere is your daily AI strategy report...%0D%0A%0D%0A{full_text[:500].replace(chr(10), '%0D%0A')}..."
             mailto_link = f"mailto:tonyh@supermicro.com?subject={urllib.parse.quote(email_subject)}&body={email_body}"
             
-            st.markdown(
-                f'''
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #dee2e6;">
-                    <h4 style="margin-top: 0;">📬 戰略報告存檔選項</h4>
-                    <p style="font-size: 14px; color: #555;">您可以點擊下方按鈕將此報告發送至您的 Supermicro 信箱以進行備份：</p>
-                    <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
-                        <button style="background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px;">
-                            {T["btn_email"]}
-                        </button>
-                    </a>
-                </div>
-                ''', 
-                unsafe_allow_html=True
-            )
+            st.markdown(f'<a href="{mailto_link}" target="_blank"><button style="background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer;">{T["btn_email"]}</button></a>', unsafe_allow_html=True)
 
 st.sidebar.divider()
-st.sidebar.caption(f"Last Intelligence Sync: {current_tw_time.strftime('%Y-%m-%d %H:%M:%S')}")
+st.sidebar.caption(f"Last Sync: {current_tw_time.strftime('%Y-%m-%d %H:%M:%S')}")
